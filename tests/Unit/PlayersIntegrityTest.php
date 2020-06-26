@@ -3,7 +3,8 @@
 namespace Tests\Unit;
 
 use App\Models\User;
-use PHPUnit\Framework\TestCase;
+use App\Services\FootballTeamStrategy;
+use Tests\TestCase;
 
 class PlayersIntegrityTest extends TestCase
 {
@@ -34,18 +35,17 @@ class PlayersIntegrityTest extends TestCase
                 Then check that there are at least as many players who can play goalie as there are teams
         */
 
-        $players = User::where('user_type', 'player')->get();
+        $players = User::player()->orderBy('ranking', 'desc')->get();
         $goalies = $players->where('can_play_goalie', 1)->all();
 
-        $teamsQtyMax = floor($players->count() / 18);
-        $teamsQtyMin = floor($players->count() / 22);
+        $footballTeamStrategy = new FootballTeamStrategy();
 
-        $teamsQtyAvg = floor(($teamsQtyMin + $teamsQtyMax) / 2);
+        $goaliesQty = count($goalies);
+        $teamsQtyMax = $footballTeamStrategy->maxTeamsQty($players, $goaliesQty);
+        $teamsQtyMin = $footballTeamStrategy->minTeamsQty($players, $goaliesQty);
+        $teamsQtyAvg = $footballTeamStrategy->avgTeamsQty($teamsQtyMin, $teamsQtyMax);
 
-        if ($teamsQtyAvg % 2 !== 0) {
-            $teamsQtyAvg++;
-        }
 
-        $this->assertGreaterThanOrEqual($goalies, $teamsQtyAvg);
+        $this->assertGreaterThanOrEqual($teamsQtyAvg, count($goalies));
     }
 }

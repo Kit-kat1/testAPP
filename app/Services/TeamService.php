@@ -1,13 +1,16 @@
 <?php
 
+declare(strict_types=1);
 namespace App\Services;
 
 use App\Contracts\TeamInterface;
 
 class TeamService
 {
-    const PLAYERS = 'players';
-    const RANK = 'rank';
+    /**
+     * @var TeamInterface
+     */
+    protected $strategy;
 
     /**
      * Strategies definition
@@ -38,11 +41,6 @@ class TeamService
         // Set first as default
         $this->setStrategy(reset($this->strategies));
     }
-
-    /**
-     * @var TeamInterface
-     */
-    protected $strategy;
 
     public function setStrategy(TeamInterface $strategy)
     {

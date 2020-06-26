@@ -1,35 +1,29 @@
 <?php
 
+declare(strict_types=1);
 namespace App\Services;
 
 use App\Contracts\TeamInterface;
 use App\Models\User;
 use Faker\Factory;
+use Illuminate\Database\Eloquent\Collection;
 
 class FootballTeamStrategy implements TeamInterface
 {
+    const MIN_PLAYERS_QTY = 18;
+    const MAX_PLAYERS_QTY = 22;
+
     public function generateTeams(): array
     {
-        $players = User::where('user_type', 'player')->orderBy('ranking', 'desc')->get();
+        $players = User::player()->orderBy('ranking', 'desc')->get();
         $goalies = $players->where('can_play_goalie', 1)->all();
 
-        $teamsQtyMax = min(floor($players->count() / 18), count($goalies));
-        $teamsQtyMin = min(floor($players->count() / 22), count($goalies));
+        $goaliesQty = count($goalies);
+        $teamsQtyMax = $this->maxTeamsQty($players, $goaliesQty);
+        $teamsQtyMin = $this->minTeamsQty($players, $goaliesQty);
+        $teamsQtyAvg = $this->avgTeamsQty($teamsQtyMin, $teamsQtyMax);
 
-        $teamsQtyAvg = floor(($teamsQtyMin + $teamsQtyMax) / 2);
-
-        if ($teamsQtyAvg % 2 !== 0) {
-            $teamsQtyAvg++;
-        }
-
-        $teams = [];
-
-        for ($i = 0; $i < $teamsQtyAvg; $i++) {
-            $teams[$i] = [
-                'players' => [],
-                'rank' => 0
-            ];
-        }
+        $teams = $this->createTeams($teamsQtyAvg);
 
         $this->assignPlayers($goalies, $teams);
         $this->assignPlayers($players->where('can_play_goalie', 0)->all(), $teams);
@@ -37,13 +31,13 @@ class FootballTeamStrategy implements TeamInterface
         return $this->giveFakeNames($teams);
     }
 
-    public function assignPlayers(array $players, &$teams): void
+    public function assignPlayers(array $players, array &$teams): void
     {
         $index = 0;
 
         foreach ($players as $key => $player) {
-            $teams[$index][TeamService::PLAYERS][] = $player;
-            $teams[$index][TeamService::RANK] += $player->ranking;
+            $teams[$index][TeamInterface::PLAYERS][] = $player;
+            $teams[$index][TeamInterface::RANK] += $player->ranking;
 
             $index++;
 
@@ -67,5 +61,59 @@ class FootballTeamStrategy implements TeamInterface
         }
 
         return $namedTeams;
+    }
+
+    /**
+     * @param Collection $players
+     * @param int $goaliesQty
+     * @return int
+     */
+    public function minTeamsQty(Collection $players, int $goaliesQty) : int
+    {
+        return intval(min(floor($players->count() / self::MAX_PLAYERS_QTY), $goaliesQty));
+    }
+
+    /**
+     * @param Collection $players
+     * @param int $goaliesQty
+     * @return int
+     */
+    public function maxTeamsQty(Collection $players, int $goaliesQty) : int
+    {
+        return intval(min(floor($players->count() / self::MIN_PLAYERS_QTY), $goaliesQty));
+    }
+
+    /**
+     * @param int $teamsQtyMin
+     * @param int $teamsQtyMax
+     * @return int
+     */
+    public function avgTeamsQty(int $teamsQtyMin, int $teamsQtyMax) : int
+    {
+        $teamsQtyAvg = round(($teamsQtyMin + $teamsQtyMax) / 2, PHP_ROUND_HALF_EVEN);
+
+        if ($teamsQtyAvg % 2 !== 0) {
+            $teamsQtyAvg++;
+        }
+
+        return intval($teamsQtyAvg);
+    }
+
+    /**
+     * @param $teamsQtyAvg
+     * @return array
+     */
+    public function createTeams($teamsQtyAvg) : array
+    {
+        $teams = [];
+
+        for ($index = 0; $index < $teamsQtyAvg; $index++) {
+            $teams[$index] = [
+                TeamInterface::PLAYERS => [],
+                TeamInterface::RANK => 0
+            ];
+        }
+
+        return $teams;
     }
 }
